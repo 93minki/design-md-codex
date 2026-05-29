@@ -1,0 +1,4 @@
+interface:
+  display_name: "DESIGN.md Generator"
+  short_description: "Create DESIGN.md plus token exports"
+  default_prompt: "Use $design-md to create a Korean DESIGN.md plus Tailwind v4 @theme CSS and a Tokens Studio global token-set JSON from the selected Figma design."
