@@ -41,10 +41,11 @@ Create or update `COMPONENTS.md` with this structure:
 # Component Contract
 
 ## Lookup Order
-1. components/ui
-2. components/sections
-3. route-local components
-4. new component — reason required
+1. COMPONENTS.md mapped Code Path
+2. components/ui
+3. components/sections
+4. route-local components
+5. new component — reason required
 
 ## Components
 | Figma Name | Code Path | Variants/Notes |
@@ -72,7 +73,7 @@ Rules for the `## Components` table:
 
 ## Naming Alignment
 
-Without Code Connect, agents need consistent names to match Figma components to code components reliably.
+Agents need consistent names to match Figma components to code components reliably.
 
 - Figma component names should match code component names.
 - If names differ, add a mapping note in the `Variants/Notes` column of `COMPONENTS.md`.
