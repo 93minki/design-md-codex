@@ -94,23 +94,23 @@ Place these handoff files next to `DESIGN.md` unless the user requests another p
 
 ## COMPONENTS.md
 
-Create `COMPONENTS.md` in handoff mode. It must include:
+Create `COMPONENTS.md` in handoff mode as an intentionally sparse starter contract. Do **not** pre-populate component rows from Figma sections, layers, instances, or inferred implementation candidates. Component entries should be added later by the `components` or `figma-implement` skill when a real Figma component is implemented or a real code path is confirmed.
 
 - `# Component Contract`
 - `## Lookup Order`
   - Use this exact order: `COMPONENTS.md` mapped Code Path -> `components/ui` -> `components/sections` -> route-local -> new with reason.
 - `## Components`
   - Include a table with these columns: `Figma Name | Code Path | Variants/Notes`.
-  - Use `pending` in `Code Path` when the component is not implemented or the path cannot be confirmed.
+  - Leave the table empty on initial creation.
+  - Do not add `pending` entries for likely future components, page sections, primitives, or repeated UI patterns during design-md handoff.
 - `## Primitive Components`
-  - If a codebase exists, scan the `components/` directory and populate this section with actual project-relative paths.
-  - If shadcn/ui is detected (`components.json` present), mark shadcn-origin primitives so downstream agents know they are installable via the shadcn CLI. See the `components` skill (V2) for the full origin/custom convention.
-  - If no codebase or no `components/` directory exists, use placeholders and ask the developer to review and replace them.
+  - Include a table for future primitive mappings, but leave it empty on initial creation.
+  - Do not scan and register existing code primitives or shadcn/ui primitives during design-md handoff; that inventory belongs to the `components` skill.
 - `## New Component Rule`
   - New components are allowed only when the existing component inventory cannot express the required UI.
   - Every new component entry must include the reason existing components are insufficient.
 
-Keep detailed component paths, reuse decisions, and component-tree notes in `COMPONENTS.md`, not in `DESIGN.md`.
+Keep detailed component paths, reuse decisions, and component-tree notes out of `DESIGN.md`. Add them to `COMPONENTS.md` only when the relevant component is explicitly added, modified, or implemented.
 
 ## Companion Token Artifacts
 
@@ -153,6 +153,12 @@ npx @google/design.md export --format json-tailwind DESIGN.md
   - `spacing` -> `$type: "spacing"` unless the project prefers DTCG-only `dimension`
   - `rounded` -> `$type: "borderRadius"` unless the project prefers DTCG-only `dimension`
   - `components` -> typed component sub-tokens when their type is clear; otherwise preserve them as `other` tokens or report why they were omitted.
+- For Tokens Studio typography tokens, resolve `fontWeight` for Figma application instead of blindly copying DESIGN.md's numeric CSS weight:
+  - Keep numeric `fontWeight` in `DESIGN.md` and Tailwind artifacts because DESIGN.md follows the spec and CSS/Tailwind expect values such as `400`, `500`, `600`, and `700`.
+  - In `tokens.studio.global.json`, prefer the exact Figma `fontName.style` string for each typography token's `fontFamily` when Figma evidence is available, e.g. `Regular`, `Medium`, `Semi Bold`, `Bold`, or whatever the font actually reports.
+  - Extract this from Figma text nodes, text styles, or styled text segments. If text is mixed, inspect segments rather than guessing from the node-level `fontName`.
+  - When possible, use Figma's available font list to confirm that the chosen family/style pair exists.
+  - Never assume a global numeric mapping such as `600 -> Semi Bold`; style names differ by font family and font file. If no Figma style evidence exists, preserve the numeric value in Tokens Studio JSON and report that typography application in Figma needs manual font-weight/style review.
 - Validate generated JSON with `JSON.parse` before claiming it is ready to import.
 
 ## Artifact Verification
@@ -230,6 +236,7 @@ Capture enough information to make the design system useful:
 - Product or brand name, audience, tone, density, and design personality
 - Color roles with hex values: primary, secondary, accent, neutral, surface, text, border, error, and state colors
 - Typography roles: family, size, weight, line height, letter spacing, and where each role is used
+- For Figma-sourced typography, capture both numeric weight and the exact Figma `fontName.style` per family so Tokens Studio can apply text styles reliably in Figma.
 - Spacing rhythm, layout grid, gutters, page margins, container widths, and responsive behavior
 - **Breakpoint values and per-breakpoint layout reflow** (column counts, container max-widths, stack vs. row), recorded in `## Layout` prose
 - Radius scale and shape language for buttons, cards, inputs, chips, and containers
