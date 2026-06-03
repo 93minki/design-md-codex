@@ -1,13 +1,19 @@
 ---
-name: design-md
-description: Use when creating, updating, linting, exporting DESIGN.md, generating Tailwind design tokens or config artifacts, generating Tokens Studio JSON, or refreshing DESIGN_SPEC.md from Figma, design tokens, screenshots, UI references, brand guidelines, or existing interface styles.
+name: design-md-v2
+description: Use when creating, updating, linting, exporting DESIGN.md, generating Tailwind design tokens or config artifacts, generating Tokens Studio JSON, or refreshing DESIGN_SPEC.md from Figma, design tokens, screenshots, UI references, brand guidelines, or existing interface styles. V2 adds responsive/breakpoint guidance and shadcn/ui token alignment.
 ---
 
-# DESIGN.md Generator
+# DESIGN.md Generator (V2)
 
 Use this skill to create a valid `DESIGN.md` design-system document from Figma or other design evidence.
 
 `DESIGN.md` is an alpha plain-text design-system format associated with `@google/design.md`. It combines optional YAML frontmatter for machine-readable tokens with a Markdown body for human-readable design rationale.
+
+> **What changed in V2**
+> - **Responsive**: explicit guidance on where breakpoints live, given that the DESIGN.md spec has no breakpoint token group.
+> - **shadcn/ui**: explicit guidance on aligning DESIGN.md tokens with shadcn CSS variables so tokens and shadcn theming do not conflict.
+>
+> Everything else is identical to the original `design-md` skill.
 
 ## Required Reference
 
@@ -43,6 +49,39 @@ When the user asks to use Figma, use the available Figma connector/plugin workfl
 - Do not fabricate exact values when evidence exists. If evidence is incomplete, infer conservatively from the visible design and make the guidance practical.
 - Do not overwrite an existing Tailwind config or Tokens Studio file blindly. Read existing files first, preserve project naming and format conventions, and report any incompatible merge instead of guessing.
 
+## Responsive & Breakpoints (V2)
+
+The DESIGN.md spec (`references/DESIGN_SPEC.md`) has **no breakpoint token group**. The frontmatter schema only defines `colors`, `typography`, `rounded`, `spacing`, and `components`. Do **not** invent a top-level `breakpoints:` group — it is outside the schema and may fail lint.
+
+Handle responsive intent in three layers, in this priority:
+
+1. **`## Layout` prose (required when the design is responsive).**
+   - Describe the responsive strategy in Korean: which layout model is used per breakpoint, container max-widths, column counts, and how key sections reflow (stack vs. row).
+   - State the actual breakpoint values explicitly so they are unambiguous for developers, e.g. `sm 640px / md 768px / lg 1024px / xl 1280px`. Prefer values that match the project's Tailwind v4 defaults so code maps 1:1.
+   - This is the canonical, spec-supported home for responsive rules. The original spec's own Layout example already documents mobile vs. desktop behavior in prose.
+
+2. **`spacing` tokens (optional, only for grid metrics).**
+   - The spec allows descriptive string keys under `spacing` for layout units such as container widths, gutters, and margins. You may add keys like `container-sm`, `container-lg`, `gutter`, `margin` here.
+   - Do **not** smuggle viewport breakpoints in as fake spacing tokens unless the team explicitly wants them exported through Tokens Studio. If you do, name them unambiguously (e.g. `bp-md`) and note in prose that they are breakpoint references, not spacing.
+
+3. **App-side breakpoint CSS (do NOT put in `tailwind.theme.css`).**
+   - Tailwind v4 reads breakpoints from `--breakpoint-*` theme variables, but `tailwind.theme.css` is an export artifact and must match a fresh `@google/design.md export --format css-tailwind`. The exporter does **not** emit `--breakpoint-*`, so writing them into `tailwind.theme.css` would break the "matches a fresh export" verification.
+   - When the project needs custom breakpoints, tell the developer to declare `--breakpoint-*` in the app's own `globals.css` (the same stylesheet that imports Tailwind and `tailwind.theme.css`), keeping `tailwind.theme.css` purely export-generated.
+   - If the project uses Tailwind's default breakpoints, no action is needed — document the values in `## Layout` and the standard `sm: md: lg:` utilities already work.
+
+When reporting, list the breakpoint values you documented and state explicitly that breakpoints live in `## Layout` prose (and, if applicable, in app-side `globals.css`), not in `tailwind.theme.css`.
+
+## shadcn/ui Token Alignment (V2)
+
+When the codebase uses shadcn/ui (detected by a `components.json` at the project root and shadcn-style files under `components/ui`), the design tokens and shadcn's CSS-variable theming must not fight each other.
+
+- shadcn components read semantic CSS variables such as `--background`, `--foreground`, `--primary`, `--primary-foreground`, `--muted`, `--border`, `--ring`, and `--radius`.
+- Map DESIGN.md tokens to those variables instead of producing a parallel, conflicting color system:
+  - Decide whether `tailwind.theme.css` tokens or shadcn's variables are the source of truth, and make one reference the other. Prefer DESIGN.md / `tailwind.theme.css` as the source, with shadcn's `--primary` etc. set from the same values in `globals.css`.
+  - Document the mapping (DESIGN.md token ↔ shadcn variable) in the report so the developer can wire `globals.css`.
+- Do **not** rewrite shadcn's `globals.css` variable block automatically unless the user asks for direct integration. Surface the mapping and let the developer apply it, or apply it only on explicit request.
+- The detailed component-level record of which shadcn components exist and which are customized belongs in `COMPONENTS.md`, owned by the `components` skill. `design-md` only ensures token alignment.
+
 ## Handoff Outputs
 
 Use handoff mode when the user provides a Figma URL and expresses or implies downstream implementation intent, such as preparing the design system for developers or implementing the Figma design in code.
@@ -65,6 +104,7 @@ Create `COMPONENTS.md` in handoff mode. It must include:
   - Use `pending` in `Code Path` when the component is not implemented or the path cannot be confirmed.
 - `## Primitive Components`
   - If a codebase exists, scan the `components/` directory and populate this section with actual project-relative paths.
+  - If shadcn/ui is detected (`components.json` present), mark shadcn-origin primitives so downstream agents know they are installable via the shadcn CLI. See the `components` skill (V2) for the full origin/custom convention.
   - If no codebase or no `components/` directory exists, use placeholders and ask the developer to review and replace them.
 - `## New Component Rule`
   - New components are allowed only when the existing component inventory cannot express the required UI.
@@ -87,6 +127,7 @@ npx @google/design.md export --format css-tailwind DESIGN.md
 
 - Save the export output to the Tailwind artifact path (`tailwind.theme.css` by default). This file should contain a Tailwind v4 `@theme { ... }` block with CSS variables such as `--color-*`, `--font-*`, `--text-*`, `--leading-*`, `--tracking-*`, `--font-weight-*`, `--radius-*`, and `--spacing-*`.
 - Do not mutate `global.css`, `app.css`, or another Tailwind entry stylesheet unless the user asks for direct integration. If integrating, add or import the generated `@theme` block in the stylesheet that imports Tailwind, typically near `@import "tailwindcss";`.
+- **V2 note**: keep `--breakpoint-*` and shadcn `--primary`-style variables out of `tailwind.theme.css`. Those belong in the app's `globals.css` (see Responsive & shadcn sections above) so `tailwind.theme.css` stays equal to a fresh export.
 - Only use the legacy v3 JSON export when the user explicitly asks for Tailwind v3, a `tailwind.config.*` integration, or a JSON theme artifact:
 
 ```bash
@@ -140,28 +181,30 @@ If the validator is unavailable, perform the same checks manually with Node: fil
 
 1. Read `references/DESIGN_SPEC.md`.
 2. Collect design evidence from Figma or the source requested by the user.
-3. Draft `DESIGN.md` with:
+3. Detect project context: check for `components.json` (shadcn) and the existing breakpoint setup, so token alignment and breakpoint placement are correct.
+4. Draft `DESIGN.md` with:
    - YAML frontmatter for tokens: `version`, `name`, `description`, `colors`, `typography`, `rounded`, `spacing`, and `components` when supported by evidence.
-   - Korean Markdown sections that explain how to apply the tokens.
-4. Run:
+   - Korean Markdown sections that explain how to apply the tokens. When the design is responsive, document breakpoint values and reflow rules in `## Layout` per the Responsive & Breakpoints section.
+5. Run:
 
 ```bash
 npx @google/design.md lint DESIGN.md
 ```
 
-5. If lint fails, fix `DESIGN.md` and rerun the lint command. Repeat until it passes or the remaining issue is blocked by missing source information.
-6. After lint passes, generate the Tailwind v4 CSS artifact:
+6. If lint fails, fix `DESIGN.md` and rerun the lint command. Repeat until it passes or the remaining issue is blocked by missing source information.
+7. After lint passes, generate the Tailwind v4 CSS artifact:
 
 ```bash
 npx @google/design.md export --format css-tailwind DESIGN.md
 ```
 
-7. Save the Tailwind export output to the requested path, or to `tailwind.theme.css` next to `DESIGN.md`.
-8. Generate the Tokens Studio token-set artifact at the requested path, or at `tokens.studio.global.json` next to `DESIGN.md`, using the Companion Token Artifacts rules.
-9. Run the Artifact Verification workflow. If validation fails, fix the artifact and rerun validation.
-10. Report the paths created or updated. For Tokens Studio, tell the user: "In Tokens Studio, select the `global` token set, open JSON View, and paste the contents of `tokens.studio.global.json`." Mention any artifacts skipped because of missing token evidence or an explicit user opt-out.
-11. In handoff mode, create or refresh `COMPONENTS.md` using the COMPONENTS.md rules.
-12. In handoff mode, report all four artifact paths and include separate designer and developer action items.
+8. Save the Tailwind export output to the requested path, or to `tailwind.theme.css` next to `DESIGN.md`.
+9. Generate the Tokens Studio token-set artifact at the requested path, or at `tokens.studio.global.json` next to `DESIGN.md`, using the Companion Token Artifacts rules.
+10. Run the Artifact Verification workflow. If validation fails, fix the artifact and rerun validation.
+11. Report the paths created or updated. For Tokens Studio, tell the user: "In Tokens Studio, select the `global` token set, open JSON View, and paste the contents of `tokens.studio.global.json`." Mention any artifacts skipped because of missing token evidence or an explicit user opt-out.
+12. **V2**: report the breakpoint values you documented and where they live (Layout prose, and app-side `globals.css` if custom). If shadcn was detected, report the DESIGN.md-token ↔ shadcn-variable mapping the developer should wire in `globals.css`.
+13. In handoff mode, create or refresh `COMPONENTS.md` using the COMPONENTS.md rules.
+14. In handoff mode, report all four artifact paths and include separate designer and developer action items.
 
 ## Spec Update Workflow
 
@@ -188,9 +231,11 @@ Capture enough information to make the design system useful:
 - Color roles with hex values: primary, secondary, accent, neutral, surface, text, border, error, and state colors
 - Typography roles: family, size, weight, line height, letter spacing, and where each role is used
 - Spacing rhythm, layout grid, gutters, page margins, container widths, and responsive behavior
+- **Breakpoint values and per-breakpoint layout reflow** (column counts, container max-widths, stack vs. row), recorded in `## Layout` prose
 - Radius scale and shape language for buttons, cards, inputs, chips, and containers
 - Elevation model: shadows, borders, tonal layering, overlays, and depth rules
 - Component styling for buttons, inputs, cards, lists, chips, tabs, navigation, modals, and relevant domain components
+- Whether components originate from the shadcn/ui Figma Kit or are custom, so token alignment and COMPONENTS.md origin notes are correct
 - Practical Korean do/don't guidance for future agents building UI from the document
 
 ## Quality Bar
@@ -199,6 +244,8 @@ Capture enough information to make the design system useful:
 - YAML values are valid and specific enough for automated export.
 - Tailwind v4 CSS and Tokens Studio artifacts are generated from the same YAML token source as `DESIGN.md`.
 - Tailwind CSS matches the current `css-tailwind` export, generated JSON artifacts parse successfully, and Tokens Studio token-set references resolve within the same file.
+- Breakpoints are documented in `## Layout` prose (and app-side `globals.css` if custom), never forced into `tailwind.theme.css`.
+- If shadcn is used, the DESIGN.md-token ↔ shadcn-variable mapping is reported so the two systems do not conflict.
 - Korean prose is concise, operational, and tied to visible design evidence.
 - The file passes `@google/design.md` lint before export.
 - Do not claim completion unless lint and artifact verification have passed, or clearly state why either could not be run.

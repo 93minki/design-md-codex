@@ -1,15 +1,15 @@
 ---
 name: figma-implement
-description: Use when implementing UI code from a completed Figma frame. Consumes DESIGN.md, tailwind.theme.css, COMPONENTS.md, and code-connect.plan.md to generate route-level code with screenshot QA.
+description: Use when implementing UI code from a completed Figma component or page frame. Consumes DESIGN.md, tailwind.theme.css, and COMPONENTS.md to generate component-level or page-level code.
 ---
 
 # Figma Implement
 
-Use this skill after design handoff is complete and a finalized Figma frame URL is available. This skill turns that completed frame into route-level UI code, then verifies the result against screenshots.
+Use this skill after design handoff is complete and a finalized Figma component or page frame URL is available. This skill turns that Figma target into component-level or page-level UI code.
 
 Role boundary:
 - `design-md`: establishes the design system, including tokens, theme artifacts, and component contracts.
-- `figma-implement`: consumes a completed Figma frame plus existing handoff artifacts to implement code and run QA.
+- `figma-implement`: consumes a completed Figma component or page frame plus existing handoff artifacts to implement code.
 
 ## Prerequisite Check
 
@@ -17,36 +17,41 @@ Before implementation, verify:
 - `DESIGN.md` exists.
 - `COMPONENTS.md` exists.
 - `tailwind.theme.css` is imported by the app's global Tailwind entry stylesheet, usually `globals.css`.
-- `code-connect.plan.md` exists. If it is missing, continue without Code Connect mappings and record that fallback.
 
 If `DESIGN.md`, `COMPONENTS.md`, or the `tailwind.theme.css` import is missing, stop implementation and ask the developer to run the `design-md` skill first.
+
+## Implementation Targets
+
+This skill supports two targets:
+
+- Component-level implementation: a File A Figma component URL, such as a pending `Pricing Card`, implemented into a shared component file.
+- Page-level implementation: a File B page frame URL, implemented into a route or page file using registered components.
 
 ## Required Inputs
 
 The developer must provide:
 - Figma URL with `node-id`.
-- Target route or file path to implement.
+- Target component, route, or file path to implement.
 - Paths for `DESIGN.md` and `COMPONENTS.md`.
 
 Example developer instruction:
 
 ```text
 Figma URL: <url>
-Route: app/page.tsx
+Target: components/sections/PricingCard.tsx or app/page.tsx
 Use DESIGN.md, tailwind.theme.css, COMPONENTS.md.
-Use Code Connect mappings first.
 Do not create new shared components unless existing components cannot express the design.
-After implementation, compare localhost screenshot against Figma screenshot.
 ```
 
 ## Implementation Workflow
 
-1. Collect the frame structure, screenshot, and assets through Figma MCP.
-2. Check `code-connect.plan.md` mappings; when a mapping exists, use it first.
-3. Follow the `COMPONENTS.md` Lookup Order exactly.
-4. Prefer reusing or extending existing components before adding route-local or new components.
-5. If a new component is necessary, record the reason before creating it.
-6. After implementation, run screenshot comparison QA between the local route and the Figma screenshot.
+1. Collect the frame structure and assets through Figma MCP.
+2. Follow the `COMPONENTS.md` Lookup Order exactly.
+3. Prefer reusing or extending existing components before adding route-local or new components.
+4. For component-level implementation, update the matching `COMPONENTS.md` entry from `pending` to the implemented path after code is created.
+5. For page-level implementation, reuse components already mapped in `COMPONENTS.md` before creating route-local code.
+6. If a new component is necessary, record the reason before creating it.
+7. Report the implemented path, any `COMPONENTS.md` updates, and any blockers.
 
 ## Component Lookup Rules
 
@@ -60,24 +65,7 @@ Create a new component only when:
 
 If an existing component can express the Figma design through configuration or composition, reuse or extend that component instead of adding a new shared component.
 
-## Screenshot QA
-
-Compare the localhost screenshot against the Figma screenshot and check:
-- Colors: token-applied fills, text, borders, overlays, and state colors.
-- Typography: family, size, weight, line height, alignment, and wrapping.
-- Spacing: padding, gaps, margins, grid alignment, and responsive breakpoints.
-- Component states: default, hover, active, disabled, selected, open, loading, and error states when present in the frame or required by the interaction.
-- Responsive behavior: desktop, tablet, and mobile layouts when the target route supports those viewports.
-
-When mismatches appear:
-1. Report each mismatch by item, expected Figma behavior, and observed local behavior.
-2. Update the implementation.
-3. Capture and compare screenshots again.
-4. Repeat until the implementation matches the frame or a blocker is identified.
-
 ## Quality Bar
 
 - Every token value applied in code traces back to `DESIGN.md` or `tailwind.theme.css`. No hardcoded hex, pixel, or font values.
 - Every shared component in the output exists in `COMPONENTS.md` or includes a written justification for its creation.
-- Screenshot comparison passes before claiming implementation is complete.
-- If Code Connect mappings exist, they are used before any manual component matching is attempted.
